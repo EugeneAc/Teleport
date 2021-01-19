@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using RestSharp;
 using Teleport.Models;
@@ -11,13 +12,16 @@ namespace Teleport.Services
     {
         private const string BASE_URL = "https://places-dev.cteleport.com/airports";
 
+        private readonly MemoryCache _cache;
+
         private readonly RestClient _client;
         private readonly ILogger<LocationFetcherService> _logger;
 
-        public LocationFetcherService(ILogger<LocationFetcherService> logger)
+        public LocationFetcherService(ILogger<LocationFetcherService> logger, MemoryCache cache)
         {
             _client = new RestClient(BASE_URL);
             _logger = logger;
+            _cache = cache;
         }
 
         public async Task<AirportLocationModel> GetAirportLocation (string locationAbbr)
@@ -25,10 +29,19 @@ namespace Teleport.Services
             if (string.IsNullOrWhiteSpace(locationAbbr))
                 return null;
 
-            var request = new RestRequest(locationAbbr.ToUpper(), DataFormat.Json);
             try
             {
-                var response = await _client.GetAsync<AirportLocationModel>(request);
+                if (!_cache.TryGetValue(locationAbbr, out AirportLocationModel response))
+                {
+                    var request = new RestRequest(locationAbbr.ToUpper(), DataFormat.Json);
+                    response = await _client.GetAsync<AirportLocationModel>(request);
+
+                    var cacheEntryOptions = new MemoryCacheEntryOptions()
+                        .SetSlidingExpiration(TimeSpan.FromHours(1));
+
+                    _cache.Set(locationAbbr, response, cacheEntryOptions);
+                }
+                
                 return response;
             }
             catch (Exception e)

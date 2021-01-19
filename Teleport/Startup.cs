@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -28,6 +29,8 @@ namespace Teleport
             });
 
             services.AddTransient<ILocationFetcher, LocationFetcherService>();
+
+            services.AddSingleton(c => new MemoryCache(new MemoryCacheOptions()));
         }
 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
